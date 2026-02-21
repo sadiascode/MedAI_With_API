@@ -61,6 +61,7 @@ class _ViewScreenState extends State<ViewScreen> {
 
       if (success) {
         _noteController.clear();
+        await _fetchDoctor(); // Refresh the screen to show the new note
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Note added'),
