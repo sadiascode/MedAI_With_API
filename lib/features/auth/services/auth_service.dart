@@ -1,4 +1,6 @@
 import 'dart:convert';
+
+import 'package:get_storage/get_storage.dart';
 import 'package:http/http.dart' as http;
 import '../../../app/urls.dart';
 import '../data/signup_model.dart';
@@ -15,7 +17,29 @@ class AuthService {
     currentUserId = userId;
     currentToken = token;
     isLoggedIn = true;
-    print('✅ User session initialized: ID=$userId, Token=${token.length > 0 ? '***' : 'empty'}');
+    
+    // Persist to local storage
+    final box = GetStorage();
+    box.write('user_id', userId);
+    box.write('access_token', token);
+    
+    print('✅ User session initialized and persisted: ID=$userId');
+  }
+
+  /// Try to restore session from local storage
+  static bool tryAutoLogin() {
+    final box = GetStorage();
+    final int? savedUserId = box.read('user_id');
+    final String? savedToken = box.read('access_token');
+
+    if (savedUserId != null && savedUserId != 0 && savedToken != null && savedToken.isNotEmpty) {
+      currentUserId = savedUserId;
+      currentToken = savedToken;
+      isLoggedIn = true;
+      print('♻️ Persistent session restored: ID=$savedUserId');
+      return true;
+    }
+    return false;
   }
 
   /// Clear user session (call after logout)
@@ -23,7 +47,13 @@ class AuthService {
     currentUserId = 0;
     currentToken = '';
     isLoggedIn = false;
-    print('🔒 User session cleared');
+    
+    // Clear local storage
+    final box = GetStorage();
+    box.remove('user_id');
+    box.remove('access_token');
+    
+    print('🔒 User session cleared and persistence removed');
   }
 
   /// Get current user ID

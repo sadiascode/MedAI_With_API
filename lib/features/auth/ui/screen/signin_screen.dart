@@ -64,12 +64,7 @@ class _SigninScreenState extends State<SigninScreen> {
         String? accessToken = responseData['access'];
 
         if (accessToken != null && accessToken.isNotEmpty) {
-          // Store access token in GetStorage
-          final box = GetStorage();
-          await box.write('access_token', accessToken);
-          print('Access token stored successfully in GetStorage');
-
-          // Initialize AuthService session
+          // Initialize AuthService session (handles storage internally now)
           final int userId = responseData['id'] ?? 0;
           AuthService.initializeUserSession(userId, accessToken);
         }

@@ -1,5 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+
 import '../../common/custom_button.dart';
+import '../../features/auth/services/auth_service.dart';
+import '../../features/home/ui/screen/home_screen.dart';
 import 'splash1_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -11,6 +15,27 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  void _checkLoginStatus() {
+    // Check for persistent login immediately on startup
+    if (AuthService.tryAutoLogin()) {
+      // Use microtask to navigate after the build phase
+      Future.microtask(() {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,12 +84,22 @@ class _SplashScreenState extends State<SplashScreen> {
                 CustomButton(
                   text: "Continue",
                   onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const Splash1Screen(),
-                      ),
-                    );
+                    // Check for persistent login
+                    if (AuthService.tryAutoLogin()) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HomeScreen(),
+                        ),
+                      );
+                    } else {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const Splash1Screen(),
+                        ),
+                      );
+                    }
                   },
                 ),
                 const SizedBox(height: 95),
