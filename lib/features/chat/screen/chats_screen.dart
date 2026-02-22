@@ -14,7 +14,8 @@ import '../../../common/app_shell.dart';
 import '../services/voice_recording_service.dart';
 
 class ChatsScreenContent extends StatefulWidget {
-  const ChatsScreenContent({super.key});
+  final bool isActive;
+  const ChatsScreenContent({super.key, this.isActive = false});
 
   @override
   State<ChatsScreenContent> createState() => _ChatsScreenContentState();
@@ -28,6 +29,7 @@ class _ChatsScreenContentState extends State<ChatsScreenContent> {
   String? _currentlyPlayingPath;
   PlayerState _playerState = PlayerState.stopped;
   StreamSubscription? _playerStateSubscription;
+  bool _isLoadingHistory = false;
 
   @override
   void initState() {
@@ -47,6 +49,83 @@ class _ChatsScreenContentState extends State<ChatsScreenContent> {
         });
       }
     });
+
+    _fetchChatHistory();
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatsScreenContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Refresh history if tab becomes active and we have no messages yet
+    if (widget.isActive && !oldWidget.isActive && _messages.isEmpty) {
+      _fetchChatHistory();
+    }
+  }
+
+  Future<void> _fetchChatHistory() async {
+    if (_isLoadingHistory) return;
+    
+    print('🔄 Fetching chat history...');
+    setState(() {
+      _isLoadingHistory = true;
+    });
+
+    try {
+      final currentUserId = await _getCurrentUserId();
+      final history = await ChatService.getChatHistory(userId: currentUserId);
+      
+      if (mounted) {
+        final List<Map<String, dynamic>> historyMessages = [];
+        
+        final sortedConversations = history.conversations.reversed.toList();
+        for (var conversation in sortedConversations) {
+          for (var messagePair in conversation.messages) {
+            if (messagePair.user != null) {
+              historyMessages.add({
+                'sender': 'user',
+                'type': messagePair.user!.messageType,
+                'text': messagePair.user!.textContent,
+                'imagePath': messagePair.user!.imageFileUrl,
+                'audioPath': messagePair.user!.voiceFileUrl,
+                'createdAt': messagePair.user!.createdAt,
+              });
+            }
+            if (messagePair.ai != null) {
+              historyMessages.add({
+                'sender': 'bot',
+                'type': messagePair.ai!.messageType,
+                'text': messagePair.ai!.textContent,
+                'voiceUrl': messagePair.ai!.voiceFileUrl,
+                'imagePath': messagePair.ai!.imageFileUrl,
+                'createdAt': messagePair.ai!.createdAt,
+              });
+            }
+          }
+        }
+        
+        print('✅ Fetched ${historyMessages.length} history messages');
+
+        setState(() {
+          if (historyMessages.isNotEmpty) {
+            _messages.clear();
+            _messages.addAll(historyMessages);
+            _showPlaceholderImage = false;
+          } else {
+            // Keep placeholder if no history
+            _showPlaceholderImage = _messages.isEmpty;
+          }
+          _isLoadingHistory = false;
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      print('❌ Error fetching chat history: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingHistory = false;
+        });
+      }
+    }
   }
 
   @override
@@ -229,6 +308,8 @@ class _ChatsScreenContentState extends State<ChatsScreenContent> {
       final String targetPath = voiceUrl ?? audioPath ?? '';
       if (targetPath.isEmpty) return;
 
+      final bool isUrl = targetPath.startsWith('http');
+
       if (_currentlyPlayingPath == targetPath) {
         // Toggle: If playing, stop it. If stopped/paused, play it.
         if (_playerState == PlayerState.playing) {
@@ -238,12 +319,12 @@ class _ChatsScreenContentState extends State<ChatsScreenContent> {
             _currentlyPlayingPath = null;
           });
         } else {
-          await VoiceRecordingService.playAudio(targetPath, isUrl: voiceUrl != null);
+          await VoiceRecordingService.playAudio(targetPath, isUrl: isUrl);
         }
       } else {
         // Switch: Stop current and play new
         await VoiceRecordingService.stopAudio();
-        await VoiceRecordingService.playAudio(targetPath, isUrl: voiceUrl != null);
+        await VoiceRecordingService.playAudio(targetPath, isUrl: isUrl);
         setState(() {
           _currentlyPlayingPath = targetPath;
         });
@@ -311,23 +392,36 @@ class _ChatsScreenContentState extends State<ChatsScreenContent> {
       ),
       body: Column(
         children: [
+          if (_isLoadingHistory)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              itemCount: _messages.length + (_showPlaceholderImage ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (_showPlaceholderImage && index == 0) {
-                  return Center(
-                    child: Image.asset(
-                      'assets/text.png',
-                      height: 300,
-                      width: 300,
-                    ),
-                  );
-                }
+            child: RefreshIndicator(
+              onRefresh: _fetchChatHistory,
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                itemCount: _messages.length + ((_showPlaceholderImage && !_isLoadingHistory) ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (_showPlaceholderImage && !_isLoadingHistory && index == 0) {
+                    return Center(
+                      child: Image.asset(
+                        'assets/text.png',
+                        height: 300,
+                        width: 300,
+                      ),
+                    );
+                  }
 
-                final msgIndex = _showPlaceholderImage ? index - 1 : index;
+                final msgIndex = (_showPlaceholderImage && !_isLoadingHistory) ? index - 1 : index;
                 final msg = _messages[msgIndex];
                 final isUser = msg['sender'] == 'user';
                 final messageType = msg['type'] ?? 'text';
@@ -411,12 +505,25 @@ class _ChatsScreenContentState extends State<ChatsScreenContent> {
                                   children: [
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: Image.file(
-                                        File(msg['imagePath']),
-                                        width: 200,
-                                        height: 200,
-                                        fit: BoxFit.cover,
-                                      ),
+                                      child: msg['imagePath'] != null && msg['imagePath'].toString().startsWith('http')
+                                      ? Image.network(
+                                          msg['imagePath'],
+                                          width: 200,
+                                          height: 200,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => Container(
+                                            width: 200,
+                                            height: 200,
+                                            color: Colors.grey[300],
+                                            child: const Icon(Icons.error),
+                                          ),
+                                        )
+                                      : Image.file(
+                                          File(msg['imagePath'] ?? ''),
+                                          width: 200,
+                                          height: 200,
+                                          fit: BoxFit.cover,
+                                        ),
                                     ),
                                     if (msg['isLoading'] == true) ...[
                                       const SizedBox(height: 8),
@@ -453,6 +560,7 @@ class _ChatsScreenContentState extends State<ChatsScreenContent> {
               },
             ),
           ),
+        ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 16),

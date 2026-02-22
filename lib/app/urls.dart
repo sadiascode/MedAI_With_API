@@ -83,6 +83,7 @@ class Urls {
 
   // ChatBot
   static const String Chat_Bot = "$baseUrl/chatbot/chat/";
+  static const String Chat_History = "$baseUrl/chatbot/history/";
 
   // Delete Account
   static const String delete_account = "$baseUrl/users/account/delete/";

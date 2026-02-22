@@ -48,7 +48,7 @@ class _AppShellState extends State<AppShell> {
       BottomTabItem(
         label: "Chat",
         icon: SvgPicture.asset("assets/chat.svg"),
-        page: const ChatsScreenContent(),
+        page: const ChatsScreenContent(), // This is just a placeholder now
       ),
       BottomTabItem(
         label: "Profile",
@@ -56,8 +56,6 @@ class _AppShellState extends State<AppShell> {
         page: const ProfileScreenContent(),
       ),
     ];
-
-    _pages = _bottomTabs.map((tab) => tab.page).toList();
   }
 
   void _onTabTapped(int index) {
@@ -70,10 +68,19 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Generate pages dynamically to pass current state (like isActive) to children
+    final pages = [
+      const HomeScreenContent(),
+      const MedicineScreenContent(),
+      const DoctorScreenContent(),
+      ChatsScreenContent(isActive: _currentIndex == 3),
+      const ProfileScreenContent(),
+    ];
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _pages,
+        children: pages,
       ),
       bottomNavigationBar: CustomBottomNav(
         tabs: _bottomTabs,

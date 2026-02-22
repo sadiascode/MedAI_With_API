@@ -4,6 +4,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:http/http.dart' as http;
 import '../../../app/urls.dart';
 import '../models/chat_model.dart';
+import '../models/chat_history_model.dart';
 
 final chatBox = GetStorage();
 final chatToken = chatBox.read('access_token');
@@ -136,6 +137,41 @@ class ChatService {
     } catch (e) {
       print(' Unexpected error in sendPrescriptionImage: $e');
       throw Exception('Unexpected error occurred: $e');
+    }
+  }
+
+  static Future<ChatHistoryModel> getChatHistory({int? userId}) async {
+    try {
+      String url = Urls.Chat_History;
+      if (userId != null && userId != 0) {
+        url = "$url?user_id=$userId";
+      }
+      print(' Fetching chat history from: $url');
+
+      final headers = _getAuthHeaders();
+      print(' History Headers: $headers');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: headers,
+      ).timeout(
+        Duration(seconds: 30),
+        onTimeout: () => throw Exception('Request timeout'),
+      );
+
+      print(' History API Response status: ${response.statusCode}');
+      print(' History API Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        return ChatHistoryModel.fromJson(responseData);
+      } else {
+        final errorMessage = _extractErrorMessage(response);
+        throw Exception('Failed to fetch history: ${response.statusCode} - $errorMessage');
+      }
+    } catch (e) {
+      print(' Error fetching history: $e');
+      throw Exception('Unexpected error occurred while fetching history: $e');
     }
   }
 
