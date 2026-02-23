@@ -55,14 +55,26 @@ class DoctorModel {
       specialization: json['specialization'] ?? '',
       hospitalName: json['hospital_name'] ?? '',
       designation: json['designation'] ?? '',
-      doctorEmail: json['doctor_email'],
+      doctorEmail: json['doctor_email']?.toString(),
+
+      // ✅ Notes safe parsing
       notes: (json['notes'] as List<dynamic>?)
           ?.map((note) => Note.fromJson(note))
-          .toList() ?? [],
+          .toList() ??
+          [],
+
+      // ✅ Prescriptions safe parsing (handles int + string)
       prescriptions: (json['prescriptions'] as List<dynamic>?)
-          ?.map((prescription) => prescription as int)
-          .toList() ?? [],
-      nextAppointmentDate: json['next_appointment_date'] as String?,
+          ?.map((p) => int.tryParse(p.toString()) ?? 0)
+          .toList() ??
+          [],
+
+      // ✅ FIXED (handles List or String)
+      nextAppointmentDate: json['next_appointment_date'] is List
+          ? (json['next_appointment_date'] as List).isNotEmpty
+          ? json['next_appointment_date'][0].toString()
+          : null
+          : json['next_appointment_date']?.toString(),
     );
   }
 
