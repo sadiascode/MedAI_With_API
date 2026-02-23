@@ -433,16 +433,6 @@ class _ProfileScreenContentState extends State<ProfileScreenContent> {
                 },
               ),
               SizedBox(height: 10),
-              CustomNew(
-                text: "Edit Profile Info",
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const EditScreen()),
-                  );
-                },
-              ),
-              SizedBox(height: 10),
 
               CustomNew(text: "Privacy Policy"),
               SizedBox(height: 10),

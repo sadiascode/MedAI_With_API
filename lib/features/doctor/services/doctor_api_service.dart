@@ -6,11 +6,12 @@ import '../models/doctor_list_model.dart';
 import '../models/doctor_model.dart';
 
 final box = GetStorage();
-final token = box.read('access_token');
 
 class DoctorApiService {
   static Future<List<DoctorListModel>> getDoctorList() async {
     try {
+      final token = box.read('access_token'); // ✅ FIX
+
       final response = await http.get(
         Uri.parse(Urls.Doctor_list),
         headers: {
@@ -18,7 +19,6 @@ class DoctorApiService {
           'Authorization': 'Bearer $token',
         },
       );
-
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = json.decode(response.body);
@@ -33,10 +33,14 @@ class DoctorApiService {
 
   static Future<DoctorModel> getSingleDoctor(int id) async {
     try {
+      final token = box.read('access_token'); // ✅ FIX
+
       final response = await http.get(
         Uri.parse(Urls.singleDoctor(id)),
-        headers: {'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       );
 
       if (response.statusCode == 200) {
@@ -59,6 +63,8 @@ class DoctorApiService {
     required String doctorEmail,
   }) async {
     try {
+      final token = box.read('access_token');
+
       final Map<String, dynamic> doctorData = {
         "name": name,
         "sex": sex,
@@ -100,7 +106,9 @@ class DoctorApiService {
             errorMessage = errorData['error'];
           }
         } catch (e) {
-          errorMessage = response.body.isNotEmpty ? response.body : 'Something went wrong';
+          errorMessage = response.body.isNotEmpty
+              ? response.body
+              : 'Something went wrong';
         }
         throw Exception(errorMessage);
       }
